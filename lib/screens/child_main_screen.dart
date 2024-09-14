@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../widgets/ride_card.dart';
 import 'child_settings_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ChildMainScreen extends StatelessWidget {
   const ChildMainScreen({super.key});
@@ -15,9 +16,14 @@ class ChildMainScreen extends StatelessWidget {
           actions: [
             IconButton(
               icon: const Icon(Icons.settings),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const ChildSettingsScreen()),
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                final lastChildId = prefs.getString('lastChildId');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChildSettingsScreen(childId: lastChildId),
+                  ),
                 );
               },
             ),

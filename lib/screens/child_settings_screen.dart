@@ -4,6 +4,7 @@ import '../models/child.dart';
 import '../models/weekly_availability.dart';
 import '../widgets/weekly_availability_widget.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ChildSettingsScreen extends StatefulWidget {
   final String? childId;
@@ -15,6 +16,8 @@ class ChildSettingsScreen extends StatefulWidget {
 }
 
 class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
+  String? _currentChildId;
+
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _firstNameController = TextEditingController();
@@ -32,55 +35,45 @@ class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _weeklyAvailability = WeeklyAvailability();
-    _loadChildData();
+    _currentChildId = widget.childId;
+    _weeklyAvailability = WeeklyAvailability(); // Initialize here
+    _loadLastChildId();
     print("ChildSettingsScreen initialized"); // Debug print
   }
 
-  void _loadChildData() {
-    final childrenBox = Hive.box<Child>('children');
-    if (widget.childId != null) {
-      // First, try to load by childId (which might be the phone number)
-      Child? child = childrenBox.get(widget.childId);
-      
-      // If not found, search by phone number
-      if (child == null) {
-        try {
-          child = childrenBox.values.firstWhere(
-            (c) => c.phone == widget.childId,
-          );
-        } catch (e) {
-          // No child found, create a new one
-          child = Child(
-            firstName: '',
-            lastName: '',
-            address: '',
-            phone: widget.childId ?? '',
-            district: '',
-            school: '',
-            classRoom: '',
-            inSchool: false,
-            weeklyAvailability: WeeklyAvailability(),
-          );
-        }
-      }
-
-      // Use null-aware operators to safely access child properties
+  void _loadLastChildId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastChildId = prefs.getString('lastChildId');
+    if (lastChildId != null) {
       setState(() {
-        _phoneController.text = child?.phone ?? '';
-        _firstNameController.text = child?.firstName ?? '';
-        _lastNameController.text = child?.lastName ?? '';
-        _addressController.text = child?.address ?? '';
-        _districtController.text = child?.district ?? '';
-        _schoolController.text = child?.school ?? '';
-        _classController.text = child?.classRoom ?? '';
-        _inSchool = child?.inSchool ?? false;
-        _weeklyAvailability = child?.weeklyAvailability ?? WeeklyAvailability();
+        _currentChildId = lastChildId;
       });
-      print("Loaded child data: ${child.toString()}"); // Debug print
+      _loadChildData();
+    }
+  }
+
+  void _loadChildData() {
+    if (_currentChildId != null) {
+      final childrenBox = Hive.box<Child>('children');
+      final child = childrenBox.get(_currentChildId);
+      if (child != null) {
+        setState(() {
+          _phoneController.text = child.phone;
+          _firstNameController.text = child.firstName;
+          _lastNameController.text = child.lastName;
+          _addressController.text = child.address;
+          _districtController.text = child.district;
+          _schoolController.text = child.school;
+          _classController.text = child.classRoom;
+          _inSchool = child.inSchool;
+          _weeklyAvailability = child.weeklyAvailability;
+        });
+        print("Loaded child data: ${child.toString()}");
+      } else {
+        print("No child found with ID: ${widget.childId}");
+      }
     } else {
-      _initializeEmptyFields();
-      print("No childId provided"); // Debug print
+      print("No childId provided");
     }
   }
 
@@ -288,7 +281,7 @@ class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
     }
   }
 
-  void _saveChildSettings() {
+  void _saveChildSettings() async {
     if (_formKey.currentState!.validate()) {
       final child = Child(
         firstName: _firstNameController.text,
@@ -310,6 +303,10 @@ class _ChildSettingsScreenState extends State<ChildSettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('הגדרות הילד נשמרו בהצלחה')),
       );
+
+      // After saving the child
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('lastChildId', child.phone);
 
       Navigator.of(context).pop(child.phone);
     }
