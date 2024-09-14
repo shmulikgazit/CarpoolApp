@@ -1,0 +1,166 @@
+import 'package:flutter/material.dart';
+import '../models/car.dart';
+import '../models/weekly_availability.dart';
+import '../widgets/weekly_availability_widget.dart';
+import '../utils/app_localizations.dart';
+import '../models/parent_group.dart';
+import '../models/parent.dart';
+
+class ParentSettingsScreen extends StatefulWidget {
+  final Function(Locale) setLocale;
+
+  const ParentSettingsScreen({Key? key, required this.setLocale})
+      : super(key: key);
+
+  @override
+  State<ParentSettingsScreen> createState() => _ParentSettingsScreenState();
+}
+
+class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
+  late Parent _currentParent;
+  bool _isEnglish = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // For now, we'll use the first parent from the mock data
+    _currentParent = _mockParents.first;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context);
+    return Directionality(
+      textDirection: _isEnglish ? TextDirection.ltr : TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(localizations.parentSettings),
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildLanguageSwitch(localizations),
+              _buildParentDetails(localizations),
+              _buildCarList(localizations),
+              WeeklyAvailabilityWidget(
+                availability: _currentParent.weeklyAvailability,
+                onChanged: (WeeklyAvailability newAvailability) {
+                  setState(() {
+                    _currentParent.weeklyAvailability = newAvailability;
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageSwitch(AppLocalizations localizations) {
+    return Row(
+      children: [
+        Text(localizations.language),
+        Switch(
+          value: _isEnglish,
+          onChanged: (value) {
+            setState(() {
+              _isEnglish = value;
+            });
+          },
+        ),
+        Text(_isEnglish ? localizations.english : localizations.hebrew),
+      ],
+    );
+  }
+
+  Widget _buildParentDetails(AppLocalizations localizations) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(localizations.parentDetails,
+            style: Theme.of(context).textTheme.titleLarge),
+        ListTile(
+            title: Text(
+                '${localizations.firstName}: ${_currentParent.firstName}')),
+        ListTile(
+            title:
+                Text('${localizations.lastName}: ${_currentParent.lastName}')),
+        ListTile(
+            title: Text('${localizations.phone}: ${_currentParent.phone}')),
+        ListTile(
+            title: Text('${localizations.address}: ${_currentParent.address}')),
+        ListTile(
+          title: Text(localizations.parentGroups),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: _currentParent.parentGroups
+                .map((group) => Text('${group.name} - ${group.schoolName}'))
+                .toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCarList(AppLocalizations localizations) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(localizations.cars, style: Theme.of(context).textTheme.titleLarge),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _currentParent.cars.length,
+          itemBuilder: (context, index) {
+            final car = _currentParent.cars[index];
+            return ListTile(
+              title: Text(
+                  '${car.model} - ${car.getLocalizedSeats(localizations)}'),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: () {
+                  setState(() {
+                    _currentParent.cars.removeAt(index);
+                  });
+                },
+              ),
+            );
+          },
+        ),
+        ElevatedButton(
+          onPressed: _showAddCarDialog,
+          child: Text(localizations.addCar),
+        ),
+      ],
+    );
+  }
+
+  void _showAddCarDialog() {
+    // Implement the dialog to add a new car
+  }
+}
+
+// Mock data (in a real app, this would be in a separate backend service)
+final List<Parent> _mockParents = [
+  Parent(
+    id: '1',
+    familyId: 'family1',
+    firstName: 'ישראל',
+    lastName: 'ישראלי',
+    phone: '050-1234567',
+    address: 'רחוב הרצל 1, תל אביב',
+    cars: [
+      Car(familyName: 'ישראלי', model: 'טויוטה קורולה', seats: 5),
+      Car(familyName: 'ישראלי', model: 'הונדה CR-V', seats: 7),
+    ],
+    parentGroups: [
+      ParentGroup(name: 'כיתה א1', schoolName: 'בית ספר יסודי א'),
+      ParentGroup(name: 'כיתה ג3', schoolName: 'בית ספר יסודי ב'),
+    ],
+    weeklyAvailability: WeeklyAvailability(),
+  ),
+  // Add more mock parents here if needed
+];
