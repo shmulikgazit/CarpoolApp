@@ -1,29 +1,18 @@
 import 'package:flutter/material.dart';
 import '../models/parent.dart';
-import '../models/car.dart';
 import '../models/parent_group.dart';
 import '../models/weekly_availability.dart';
-import '../widgets/car_dialog.dart';
 import '../widgets/parent_group_dialog.dart';
 import '../widgets/weekly_availability_widget.dart';
-import 'dart:math';
-
-WeeklyAvailability generateRandomAvailability() {
-  final availability = WeeklyAvailability();
-  final random = Random();
-
-  for (var day in DayOfWeek.values) {
-    for (var slot in TimeSlot.values) {
-      // 70% chance of being available
-      availability.setAvailability(day, slot, random.nextDouble() < 0.7);
-    }
-  }
-
-  return availability;
-}
+import '../widgets/car_dialog.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive/hive.dart';
+import '../models/car.dart';
 
 class ParentSettingsScreen extends StatefulWidget {
-  const ParentSettingsScreen({Key? key}) : super(key: key);
+  final String? parentId;
+
+  const ParentSettingsScreen({Key? key, this.parentId}) : super(key: key);
 
   @override
   _ParentSettingsScreenState createState() => _ParentSettingsScreenState();
@@ -42,73 +31,11 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
   bool _offerTaxiRide = false;
   String? _familyId;
   late WeeklyAvailability _weeklyAvailability;
-  String _selectedSchool = '';
+  String? _selectedSchool;
 
-  // Mock data
   final List<String> _schools = ['בארי', 'חביב', 'ידלין', 'מייתרים', 'אוסטרובסקי', 'יסודי א', 'יסודי ב'];
-  final List<Parent> _existingParents = [
-    Parent(
-      id: '1',
-      familyId: '1',
-      firstName: 'אהרון',
-      lastName: 'לוי',
-      phone: '0501234567',
-      address: 'רחוב א 1, תל אביב',
-      cars: [
-        Car(familyName: 'לוי', model: 'הונדה סיוויק', seats: 4),
-        Car(familyName: 'לוי', model: 'ניסאן מיקרה', seats: 3),
-      ],
-      parentGroups: [ParentGroup(name: 'כיתה ז', schoolName: 'בארי'), ParentGroup(name: 'כיתה ט', schoolName: 'בארי')],
-      weeklyAvailability: generateRandomAvailability(),
-    ),
-    Parent(
-      id: '2',
-      familyId: '2',
-      firstName: 'ישי',
-      lastName: 'לוי',
-      phone: '0502345678',
-      address: 'רחוב ב 2, רמת גן',
-      cars: [
-        Car(familyName: 'לוי', model: 'קיה פיקנטו', seats: 3),
-        Car(familyName: 'לוי', model: 'קיה ספורטאז', seats: 4),
-      ],
-      parentGroups: [ParentGroup(name: 'כיתה י', schoolName: 'חביב')],
-      weeklyAvailability: generateRandomAvailability(),
-    ),
-    Parent(
-      id: '3',
-      familyId: '3',
-      firstName: 'שלום',
-      lastName: 'כהן',
-      phone: '0503456789',
-      address: 'רחוב ג 3, גבעתיים',
-      cars: [],
-      parentGroups: [ParentGroup(name: 'כיתה ח', schoolName: 'ידלין')],
-      weeklyAvailability: generateRandomAvailability(),
-    ),
-    Parent(
-      id: '4',
-      familyId: '4',
-      firstName: 'דליה',
-      lastName: 'גזית',
-      phone: '0504567890',
-      address: 'רחוב ד 4, הרצליה',
-      cars: [],
-      parentGroups: [ParentGroup(name: 'כיתה יא', schoolName: 'מייתרים'), ParentGroup(name: 'כיתה ז', schoolName: 'מייתרים')],
-      weeklyAvailability: generateRandomAvailability(),
-    ),
-    Parent(
-      id: '5',
-      familyId: '5',
-      firstName: 'יעל',
-      lastName: 'חגבי',
-      phone: '0505678901',
-      address: 'רחוב ה 5, רעננה',
-      cars: [],
-      parentGroups: [],
-      weeklyAvailability: generateRandomAvailability(),
-    ),
-  ];
+
+  bool _initialized = false;
 
   @override
   void initState() {
@@ -119,6 +46,109 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
     _addressController = TextEditingController();
     _schoolController = TextEditingController();
     _weeklyAvailability = WeeklyAvailability();
+    if (widget.parentId != null) {
+      _loadParentData(widget.parentId!);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initializeEmptyFields();
+      _initialized = true;
+    }
+  }
+
+  void _initializeEmptyFields() {
+    setState(() {
+      _firstNameController.text = '';
+      _lastNameController.text = '';
+      _phoneController.text = '';
+      _addressController.text = '';
+      _schoolController.text = '';
+      _parentGroups = [];
+      _cars = [];
+      _isAvailable = true;
+      _offerTaxiRide = false;
+      _familyId = null;
+      _weeklyAvailability = WeeklyAvailability();
+      _selectedSchool = '';
+    });
+  }
+
+  void _lookupParentByPhone() {
+    final phoneNumber = _phoneController.text;
+    print("Lookup called for phone number: $phoneNumber");
+    if (phoneNumber.isNotEmpty) {
+      final parentsBox = Hive.box<Parent>('parents');
+      print("Parents in box: ${parentsBox.values.length}");
+      final existingParent = parentsBox.values.firstWhere(
+        (parent) => parent.phone == phoneNumber,
+        orElse: () => Parent(id: '', familyId: '', firstName: '', lastName: '', phone: '', address: '', cars: [], parentGroups: [], weeklyAvailability: WeeklyAvailability()),
+      );
+
+      print("Found parent: ${existingParent.firstName} ${existingParent.lastName}");
+
+      if (existingParent.id.isNotEmpty) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return Directionality(
+              textDirection: TextDirection.rtl,
+              child: AlertDialog(
+                title: const Text('נמצא הורה קיים'),
+                content: Text('נמצא ${existingParent.firstName} ${existingParent.lastName} עם מספר טלפון זה. האם ברצונך לשחזר את הנתונים?'),
+                actions: <Widget>[
+                  TextButton(
+                    child: const Text('לא'),
+                    onPressed: () => Navigator.of(context).pop(false),
+                  ),
+                  TextButton(
+                    child: const Text('כן'),
+                    onPressed: () => Navigator.of(context).pop(true),
+                  ),
+                ],
+              ),
+            );
+          },
+        ).then((result) {
+          print("Dialog result: $result");
+          if (result == true) {
+            _loadParentData(existingParent.id);
+          }
+        });
+      } else {
+        print("No parent found with this phone number");
+      }
+    }
+  }
+
+  void _loadParentData(String parentId) {
+    try {
+      final parentsBox = Hive.box<Parent>('parents');
+      final parent = parentsBox.get(parentId);
+      if (parent != null) {
+        setState(() {
+          _familyId = parent.familyId;
+          _firstNameController.text = parent.firstName;
+          _lastNameController.text = parent.lastName;
+          _phoneController.text = parent.phone;
+          _addressController.text = parent.address;
+          _cars = parent.cars;
+          _parentGroups = parent.parentGroups;
+          _weeklyAvailability = parent.weeklyAvailability;
+          if (parent.parentGroups.isNotEmpty) {
+            _selectedSchool = parent.parentGroups.first.schoolName;
+            _schoolController.text = _selectedSchool ?? '';
+          }
+        });
+      } else {
+        print('Parent not found with ID: $parentId');
+      }
+    } catch (e) {
+      print('Error loading parent data: $e');
+    }
   }
 
   @override
@@ -136,6 +166,21 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                TextFormField(
+                  controller: _phoneController,
+                  decoration: const InputDecoration(labelText: 'מספר טלפון'),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'נא להזין מספר טלפון';
+                    }
+                    return null;
+                  },
+                  onChanged: (value) {
+                    if (value.length == 10) {  // Assuming Israeli phone numbers are 10 digits
+                      _lookupParentByPhone();
+                    }
+                  },
+                ),
                 TextFormField(
                   controller: _firstNameController,
                   decoration: const InputDecoration(labelText: 'שם פרטי'),
@@ -155,17 +200,6 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
                     }
                     return null;
                   },
-                  onChanged: (_) => _checkFamilyName(),
-                ),
-                TextFormField(
-                  controller: _phoneController,
-                  decoration: const InputDecoration(labelText: 'מספר טלפון'),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'נא להזין מספר טלפון';
-                    }
-                    return null;
-                  },
                 ),
                 TextFormField(
                   controller: _addressController,
@@ -176,10 +210,9 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
                     }
                     return null;
                   },
-                  onChanged: (_) => _checkFamilyName(),
                 ),
                 Autocomplete<String>(
-                  initialValue: TextEditingValue(text: _selectedSchool),
+                  initialValue: TextEditingValue(text: _selectedSchool ?? ''),
                   optionsBuilder: (TextEditingValue textEditingValue) {
                     if (textEditingValue.text == '') {
                       return const Iterable<String>.empty();
@@ -195,9 +228,8 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
                     });
                   },
                   fieldViewBuilder: (BuildContext context, TextEditingController fieldTextEditingController, FocusNode fieldFocusNode, VoidCallback onFieldSubmitted) {
-                    // Update the fieldTextEditingController when _selectedSchool changes
                     if (fieldTextEditingController.text != _selectedSchool) {
-                      fieldTextEditingController.text = _selectedSchool;
+                      fieldTextEditingController.text = _selectedSchool ?? '';
                     }
                     return TextFormField(
                       controller: fieldTextEditingController,
@@ -277,7 +309,8 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
     final address = _addressController.text;
 
     if (lastName.isNotEmpty && address.isNotEmpty) {
-      final matchingFamilies = _existingParents.where((parent) =>
+      final parentsBox = Hive.box<Parent>('parents');
+      final matchingFamilies = parentsBox.values.where((parent) =>
           parent.lastName == lastName &&
           parent.address.contains(address.split(',')[0])).toList();
 
@@ -306,7 +339,7 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
                             _addressController.text = family.address;
                             if (family.parentGroups.isNotEmpty) {
                               _selectedSchool = family.parentGroups.first.schoolName;
-                              _schoolController.text = _selectedSchool;
+                              _schoolController.text = _selectedSchool ?? '';
                             }
                           });
                           Navigator.of(context).pop();
@@ -343,8 +376,8 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
 
   List<Widget> _buildCarsList() {
     return _cars.map((car) => ListTile(
-      title: Text(car.model),
-      subtitle: Text('${car.seats} מושבים'),
+      title: Text(car.model ?? ''),
+      subtitle: Text('${car.seats ?? 0} seats'),
       trailing: IconButton(
         icon: const Icon(Icons.delete),
         onPressed: () => _removeCar(car),
@@ -358,7 +391,6 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
       builder: (BuildContext context) {
         return ParentGroupDialog(
           parentGroupNames: _parentGroups.map((group) => group.name).toList(),
-          schools: _schools,
           onSave: (ParentGroup newGroup) {
             setState(() {
               _parentGroups.add(newGroup);
@@ -375,9 +407,14 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
       builder: (BuildContext context) {
         return CarDialog(
           familyName: _lastNameController.text,
-          onSave: (Car newCar) {
+          onSave: (Map<String, dynamic> newCar) {
             setState(() {
-              _cars.add(newCar);
+              _cars.add(Car(
+                familyName: newCar['familyName'] as String? ?? '',
+                model: newCar['model'] as String? ?? '',
+                seats: newCar['seats'] as int? ?? 0,
+                licensePlate: newCar['licensePlate'] as String? ?? '',
+              ));
             });
           },
         );
@@ -397,7 +434,7 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
     });
   }
 
-  void _saveParent() {
+  void _saveParent() async {
     if (_formKey.currentState!.validate()) {
       final parent = Parent(
         id: _familyId ?? DateTime.now().toString(),
@@ -410,11 +447,22 @@ class _ParentSettingsScreenState extends State<ParentSettingsScreen> {
         parentGroups: _parentGroups,
         weeklyAvailability: _weeklyAvailability,
       );
-      // TODO: Save parent to backend
+
+      // Save parent to Hive box
+      final parentsBox = Hive.box<Parent>('parents');
+      await parentsBox.put(parent.id, parent);
+
       print('Saving parent: ${parent.toString()}');
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('lastParentId', parent.id);
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('הורה נשמר בהצלחה')),
+        const SnackBar(content: Text('הורה נשמר בהצלחה')),
       );
+
+      // Navigate back to the parent main screen
+      Navigator.of(context).pop();
     }
   }
 

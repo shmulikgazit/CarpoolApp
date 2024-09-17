@@ -1,8 +1,16 @@
 import 'package:hive/hive.dart';
 
+
+// Add this line at the top, after the imports and part directive
+export 'weekly_availability.dart' show TimeSlot, DayOfWeek;
+
 part 'weekly_availability.g.dart';
 
-@HiveType(typeId: 1)
+
+
+
+
+@HiveType(typeId: 5)
 enum DayOfWeek {
   @HiveField(0)
   sunday,
@@ -20,7 +28,7 @@ enum DayOfWeek {
   saturday
 }
 
-@HiveType(typeId: 2)
+@HiveType(typeId: 6)
 enum TimeSlot {
   @HiveField(0)
   sevenAM,
@@ -36,10 +44,10 @@ enum TimeSlot {
   threePM
 }
 
-@HiveType(typeId: 3)
+@HiveType(typeId: 4)
 class WeeklyAvailability extends HiveObject {
   @HiveField(0)
-  Map<DayOfWeek, Map<TimeSlot, bool>> availability;
+  final Map<DayOfWeek, Map<TimeSlot, bool>> availability;
 
   WeeklyAvailability()
       : availability = {
@@ -47,17 +55,22 @@ class WeeklyAvailability extends HiveObject {
             day: {for (var slot in TimeSlot.values) slot: false}
         };
 
+  @HiveField(1)
+  WeeklyAvailability.fromMap(Map<DayOfWeek, Map<TimeSlot, bool>> availabilityMap)
+      : availability = availabilityMap;
+
   void setAvailability(DayOfWeek day, TimeSlot slot, bool isAvailable) {
+    if (!availability.containsKey(day)) {
+      availability[day] = {};
+    }
     availability[day]![slot] = isAvailable;
   }
 
   bool isAvailable(DayOfWeek day, TimeSlot slot) {
-    return availability[day]![slot]!;
+    return availability[day]?[slot] ?? false;
   }
 
   WeeklyAvailability copyWith() {
-    final newAvailability = WeeklyAvailability();
-    newAvailability.availability = Map.from(availability);
-    return newAvailability;
+    return WeeklyAvailability.fromMap(Map.from(availability));
   }
 }

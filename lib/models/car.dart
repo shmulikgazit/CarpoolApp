@@ -2,18 +2,26 @@ import 'package:hive/hive.dart';
 
 part 'car.g.dart';
 
-@HiveType(typeId: 5)
+@HiveType(typeId: 2)
 class Car extends HiveObject {
   @HiveField(0)
-  final String familyName;
+  String? familyName;
 
   @HiveField(1)
-  final String model;
+  String? model;
 
   @HiveField(2)
-  final int seats;
+  int? seats;
 
-  Car({required this.familyName, required this.model, required this.seats});
+  @HiveField(3)
+  String? licensePlate;
+
+  Car({
+    this.familyName,
+    this.model,
+    this.seats,
+    this.licensePlate,
+  });
 
   String getSeatsDescription() {
     return '$seats מושבים';

@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'parent_settings_screen.dart';
 import '../widgets/ride_card.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ParentMainScreen extends StatelessWidget {
   const ParentMainScreen({Key? key}) : super(key: key);
+
+  Future<String?> _getLastParentId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('lastParentId');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,9 +21,10 @@ class ParentMainScreen extends StatelessWidget {
           actions: [
             IconButton(
               icon: const Icon(Icons.settings),
-              onPressed: () {
+              onPressed: () async {
+                final lastParentId = await _getLastParentId();
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const ParentSettingsScreen()),
+                  MaterialPageRoute(builder: (context) => ParentSettingsScreen(parentId: lastParentId)),
                 );
               },
             ),

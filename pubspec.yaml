@@ -37,8 +37,11 @@ dependencies:
 
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  path_provider: ^2.0.11  # Add this line
 
   shared_preferences: ^2.0.0
+
+  logging: ^1.1.0  # Add this line
 
 dev_dependencies:
   flutter_test:

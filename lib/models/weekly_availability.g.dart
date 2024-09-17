@@ -8,17 +8,11 @@ part of 'weekly_availability.dart';
 
 class WeeklyAvailabilityAdapter extends TypeAdapter<WeeklyAvailability> {
   @override
-  final int typeId = 3;
+  final int typeId = 4;
 
   @override
   WeeklyAvailability read(BinaryReader reader) {
-    final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{
-      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
-    };
-    return WeeklyAvailability()
-      ..availability = (fields[0] as Map).map((dynamic k, dynamic v) =>
-          MapEntry(k as DayOfWeek, (v as Map).cast<TimeSlot, bool>()));
+    return WeeklyAvailability();
   }
 
   @override
@@ -42,7 +36,7 @@ class WeeklyAvailabilityAdapter extends TypeAdapter<WeeklyAvailability> {
 
 class DayOfWeekAdapter extends TypeAdapter<DayOfWeek> {
   @override
-  final int typeId = 1;
+  final int typeId = 5;
 
   @override
   DayOfWeek read(BinaryReader reader) {
@@ -106,7 +100,7 @@ class DayOfWeekAdapter extends TypeAdapter<DayOfWeek> {
 
 class TimeSlotAdapter extends TypeAdapter<TimeSlot> {
   @override
-  final int typeId = 2;
+  final int typeId = 6;
 
   @override
   TimeSlot read(BinaryReader reader) {

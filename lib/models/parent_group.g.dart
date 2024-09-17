@@ -8,7 +8,7 @@ part of 'parent_group.dart';
 
 class ParentGroupAdapter extends TypeAdapter<ParentGroup> {
   @override
-  final int typeId = 6;
+  final int typeId = 7;
 
   @override
   ParentGroup read(BinaryReader reader) {

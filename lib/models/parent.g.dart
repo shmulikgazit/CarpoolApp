@@ -8,7 +8,7 @@ part of 'parent.dart';
 
 class ParentAdapter extends TypeAdapter<Parent> {
   @override
-  final int typeId = 4;
+  final int typeId = 1;
 
   @override
   Parent read(BinaryReader reader) {
@@ -23,8 +23,8 @@ class ParentAdapter extends TypeAdapter<Parent> {
       lastName: fields[3] as String,
       phone: fields[4] as String,
       address: fields[5] as String,
-      cars: (fields[6] as List).cast<Car>(),
-      parentGroups: (fields[7] as List).cast<ParentGroup>(),
+      cars: (fields[6] as List?)?.cast<Car>(),
+      parentGroups: (fields[7] as List?)?.cast<ParentGroup>(),
       weeklyAvailability: fields[8] as WeeklyAvailability,
     );
   }

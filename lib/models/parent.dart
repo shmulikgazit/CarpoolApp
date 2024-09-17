@@ -5,7 +5,7 @@ import 'weekly_availability.dart';
 
 part 'parent.g.dart';
 
-@HiveType(typeId: 4)
+@HiveType(typeId: 1)  // Changed from 4 to 1
 class Parent extends HiveObject {
   @HiveField(0)
   final String id;
@@ -26,7 +26,7 @@ class Parent extends HiveObject {
   final String address;
 
   @HiveField(6)
-  final List<Car> cars;
+  final List<Car> cars;  // Changed from List<dynamic> to List<Car>
 
   @HiveField(7)
   final List<ParentGroup> parentGroups;
@@ -41,10 +41,12 @@ class Parent extends HiveObject {
     required this.lastName,
     required this.phone,
     required this.address,
-    required this.cars,
-    required this.parentGroups,
+    List<Car>? cars,  // Made optional
+    List<ParentGroup>? parentGroups,  // Made optional
     required this.weeklyAvailability,
-  });
+  }) : 
+    this.cars = cars ?? [],  // Initialize with empty list if null
+    this.parentGroups = parentGroups ?? [];  // Initialize with empty list if null
 
   @override
   String toString() {
